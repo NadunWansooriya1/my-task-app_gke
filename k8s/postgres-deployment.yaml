@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: postgres
   namespace: nadun-task-app
+  labels:
+    app: postgres
 spec:
   replicas: 1
   selector:
@@ -18,13 +20,19 @@ spec:
           image: postgres:15-alpine
           ports:
             - containerPort: 5432
+              name: postgres
           env:
             - name: POSTGRES_USER
               value: "admin"
             - name: POSTGRES_PASSWORD
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: postgres-password
             - name: POSTGRES_DB
               value: "taskdb"
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
@@ -35,6 +43,22 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - admin
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - admin
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
@@ -45,10 +69,14 @@ kind: Service
 metadata:
   name: postgres
   namespace: nadun-task-app
+  labels:
+    app: postgres
 spec:
-  type: ClusterIP # Internal service only
+  type: ClusterIP
   ports:
     - port: 5432
       targetPort: 5432
+      protocol: TCP
+      name: postgres
   selector:
     app: postgres
