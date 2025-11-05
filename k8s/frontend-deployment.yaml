@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: nadun-task-app
+spec:
+  replicas: 2  # <-- Set to 2 for high availability
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # This image path will be updated by the CI/CD pipeline
+          image: gcr.io/dev-ops-475910/nadun-task-frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: nadun-task-app
+spec:
+  type: LoadBalancer # Exposes the frontend to the internet
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: frontend

@@ -1,0 +1,113 @@
+name: Deploy to GKE
+
+on:
+  push:
+    branches: [ main ] # Triggers on push to the main branch
+  workflow_dispatch:   # Allows you to run it manually
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: ${{ secrets.GKE_CLUSTER_NAME }}
+  GKE_ZONE: ${{ secrets.GKE_ZONE }}
+  BACKEND_IMAGE: nadun-task-backend
+  FRONTEND_IMAGE: nadun-task-frontend
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Get GKE Credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --zone ${{ env.GKE_ZONE }}
+
+      - name: Build Backend Image
+        run: |
+          cd todo-api
+          docker build \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:latest \
+            .
+
+      - name: Build Frontend Image
+        run: |
+          cd todo-frontend
+          # This step builds the frontend using a placeholder for the backend IP
+          # We will deploy the backend first, get its IP, and then re-build this
+          docker build \
+            --build-arg REACT_APP_API_URL=http://BACKEND_PLACEHOLDER_IP:80 \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:latest \
+            .
+
+      - name: Publish Images to GCR
+        run: |
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:latest
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:latest
+
+      - name: Update Kubernetes Manifests with Image SHA
+        run: |
+          # Update image paths with the correct project ID
+          sed -i "s|gcr.io/PROJECT_ID|gcr.io/${{ env.PROJECT_ID }}|g" k8s/backend-deployment.yaml
+          sed -i "s|gcr.io/PROJECT_ID|gcr.io/${{ env.PROJECT_ID }}|g" k8s/frontend-deployment.yaml
+          
+          # Update image tags to the specific commit SHA for this deployment
+          sed -i "s|:latest|:${{ github.sha }}|g" k8s/backend-deployment.yaml
+          sed -i "s|:latest|:${{ github.sha }}|g" k8s/frontend-deployment.yaml
+
+      - name: Deploy to GKE
+        run: |
+          # 1. Apply namespace, secrets, and database
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/secrets.yaml
+          kubectl apply -f k8s/postgres-pvc.yaml
+          kubectl apply -f k8s/postgres-deployment.yaml
+          
+          # 2. Wait for postgres to be ready
+          echo "Waiting for PostgreSQL pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app=postgres -n nadun-task-app --timeout=300s
+          
+          # 3. Apply backend
+          kubectl apply -f k8s/backend-deployment.yaml
+          
+          # 4. Wait for backend to be ready
+          echo "Waiting for Backend pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app=backend -n nadun-task-app --timeout=300s
+          
+          # 5. Apply frontend
+          kubectl apply -f k8s/frontend-deployment.yaml
+          
+          # 6. Wait for frontend to be ready
+          echo "Waiting for Frontend pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app=frontend -n nadun-task-app --timeout=300s
+
+      - name: Get Service URLs
+        run: |
+          echo "=== Deployment Complete ==="
+          echo "Waiting 60s for LoadBalancer IPs..."
+          sleep 60
+          
+          echo "Backend Service (Note the EXTERNAL-IP):"
+          kubectl get service backend -n nadun-task-app
+          
+          echo "Frontend Service (Note the EXTERNAL-IP):"
+          kubectl get service frontend -n nadun-task-app
+          
+          echo "Run 'kubectl get services -n nadun-task-app' in your Cloud Shell to get the IPs."
