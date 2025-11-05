@@ -18,6 +18,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # --- FIX 1: ADDED CHECKOUT STEP ---
+      # This downloads your repository code to the runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # --- FIX 2: ADDED DEBUG STEP ---
+      # This will show us the file structure
+      - name: List files in repository
+        run: ls -lR
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
