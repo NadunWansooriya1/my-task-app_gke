@@ -6,7 +6,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 1
+  replicas: 2  # Keep 2 replicas for high availability
   selector:
     matchLabels:
       app: backend
@@ -14,12 +14,29 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0
+      maxUnavailable: 0  # Ensures at least 1 backend is always available
+  minReadySeconds: 20
   template:
     metadata:
       labels:
         app: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - backend
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: backend
           image: gcr.io/dev-ops-475910/nadun-task-backend:latest
@@ -27,6 +44,7 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+              protocol: TCP
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://postgres:5432/taskdb"
@@ -46,29 +64,53 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: jwt-secret
+            - name: JAVA_OPTS
+              value: "-Xmx512m -Xms256m -XX:MaxMetaspaceSize=128m"
+            - name: SERVER_TOMCAT_THREADS_MAX
+              value: "100"
+            - name: SERVER_TOMCAT_ACCEPT_COUNT
+              value: "50"
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "384Mi"
+              cpu: "300m"
             limits:
-              memory: "1Gi"
-              cpu: "1000m"
+              memory: "768Mi"
+              cpu: "600m"
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8080
+              scheme: HTTP
             initialDelaySeconds: 60
             periodSeconds: 10
             timeoutSeconds: 5
+            successThreshold: 1
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8080
+              scheme: HTTP
             initialDelaySeconds: 90
             periodSeconds: 15
             timeoutSeconds: 5
+            successThreshold: 1
             failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 30
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
 ---
 apiVersion: v1
 kind: Service
@@ -79,6 +121,10 @@ metadata:
     app: backend
 spec:
   type: LoadBalancer
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   ports:
     - port: 8080
       targetPort: 8080

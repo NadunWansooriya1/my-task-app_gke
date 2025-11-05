@@ -10,6 +10,8 @@ spec:
   selector:
     matchLabels:
       app: postgres
+  strategy:
+    type: Recreate  # Important for database
   template:
     metadata:
       labels:
@@ -33,32 +35,40 @@ spec:
               value: "taskdb"
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_INITDB_ARGS
+              value: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
           resources:
             requests:
               memory: "256Mi"
-              cpu: "250m"
+              cpu: "200m"
             limits:
               memory: "512Mi"
-              cpu: "500m"
+              cpu: "400m"
           livenessProbe:
             exec:
               command:
-                - pg_isready
-                - -U
-                - admin
+                - /bin/sh
+                - -c
+                - pg_isready -U admin -d taskdb
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
           readinessProbe:
             exec:
               command:
-                - pg_isready
-                - -U
-                - admin
-            initialDelaySeconds: 5
+                - /bin/sh
+                - -c
+                - pg_isready -U admin -d taskdb
+            initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
