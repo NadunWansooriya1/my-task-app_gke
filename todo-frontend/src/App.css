@@ -1,0 +1,52 @@
+import React, { useState } from 'react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Switch from '@mui/material/Switch';
+import TaskList from './TaskList';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { AppBar, Toolbar, Typography, Container, IconButton } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+
+function App() {
+  const [darkMode, setDarkMode] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0); // State to trigger refresh
+
+  const theme = createTheme({
+    palette: { mode: darkMode ? 'dark' : 'light' },
+  });
+
+  // This function will be called by the refresh button
+  const handleRefresh = () => {
+    setRefreshKey(oldKey => oldKey + 1); // Increment key to trigger useEffect
+  };
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AppBar position="static">
+        <Toolbar>
+          {/* 1. Title Changed */}
+          <Typography variant="h6" style={{ flexGrow: 1 }}>
+            My Daily Task
+          </Typography>
+
+          {/* 3. Refresh Button Added */}
+          <IconButton color="inherit" onClick={handleRefresh}>
+            <RefreshIcon />
+          </IconButton>
+          
+          <Switch checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
+          <Typography>Dark Mode</Typography>
+        </Toolbar>
+      </AppBar>
+      <Container>
+        {/* Pass the refreshKey to TaskList */}
+        <TaskList refreshKey={refreshKey} />
+        <ToastContainer />
+      </Container>
+    </ThemeProvider>
+  );
+}
+
+export default App;
