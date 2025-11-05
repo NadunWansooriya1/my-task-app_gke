@@ -6,7 +6,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 2  # Keep 2 replicas for high availability
+  replicas: 1  # Changed to 1 for cost efficiency
   selector:
     matchLabels:
       app: backend
@@ -14,7 +14,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0  # Ensures at least 1 backend is always available
+      maxUnavailable: 0
   minReadySeconds: 20
   template:
     metadata:
@@ -25,18 +25,6 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: "/actuator/prometheus"
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - backend
-                topologyKey: kubernetes.io/hostname
       containers:
         - name: backend
           image: gcr.io/dev-ops-475910/nadun-task-backend:latest

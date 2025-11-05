@@ -6,7 +6,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 1  # Single replica as requested
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -14,7 +14,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0  # Ensures frontend is always available during updates
+      maxUnavailable: 0
   template:
     metadata:
       labels:
