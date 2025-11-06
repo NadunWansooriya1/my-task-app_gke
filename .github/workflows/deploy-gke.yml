@@ -49,6 +49,36 @@ jobs:
             --zone ${{ env.GKE_ZONE }} \
             --project ${{ env.PROJECT_ID }}
 
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0 # Use a specific version
+
+      - name: Add External Secrets Helm Repo
+        run: |
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo update
+
+      - name: Install/Upgrade External Secrets Operator
+        run: |
+          helm upgrade --install external-secrets \
+            external-secrets/external-secrets \
+            -n external-secrets-system \
+            --create-namespace \
+            --set installCRDs=true
+
+      - name: Wait for External Secrets Webhook
+        run: |
+          echo "Waiting for CRDs to be established..."
+          kubectl wait --for=condition=established crd/secretstores.external-secrets.io --timeout=60s
+          kubectl wait --for=condition=established crd/externalsecrets.external-secrets.io --timeout=60s
+        
+          echo "Waiting for Webhook to be ready..."
+          kubectl wait --for=condition=ready pod \
+            -l app.kubernetes.io/name=external-secrets-webhook \
+            -n external-secrets-system \
+            --timeout=180s
+
       - name: Verify kubectl connection
         run: |
           kubectl cluster-info
