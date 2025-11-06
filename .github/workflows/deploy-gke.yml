@@ -96,6 +96,15 @@ jobs:
           # Deploy PostgreSQL
           kubectl apply -f k8s/postgres-deployment.yaml
           
+          # Deploy Backend
+          kubectl apply -f k8s/backend-deployment.yaml
+
+          # --- ADD THIS LINE ---
+          kubectl apply -f k8s/backend-servicemonitor.yaml
+
+          # Wait for Backend
+          echo "Waiting for Backend to be ready..."
+          
           # Wait for PostgreSQL
           echo "Waiting for PostgreSQL to be ready..."
           kubectl wait --for=condition=ready pod -l app=postgres -n nadun-task-app --timeout=300s || true

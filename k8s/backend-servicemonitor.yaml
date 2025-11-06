@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-monitor
+  namespace: nadun-task-app # Deploys to your app's namespace
+  labels:
+    release: prometheus # This label lets the stack find it
+spec:
+  selector:
+    matchLabels:
+      app: backend # Finds services with this label
+  endpoints:
+    - port: http # The 'name' of the port in your backend-deployment.yaml
+      path: /actuator/prometheus # The metrics path
+      interval: 15s
+  namespaceSelector:
+    matchNames:
+      - nadun-task-app # Tells Prometheus to look in this namespace
