@@ -67,13 +67,14 @@ jobs:
             --create-namespace \
             --set installCRDs=true
 
-      - name: Wait for External Secrets Webhook
+      - name: Wait for External Secrets to be ready
         run: |
           echo "Waiting for CRDs to be established..."
+          # Wait for the cluster to recognize the new "SecretStore" object
           kubectl wait --for=condition=established crd/secretstores.external-secrets.io --timeout=60s
-          kubectl wait --for=condition=established crd/externalsecrets.external-secrets.io --timeout=60s
         
           echo "Waiting for Webhook to be ready..."
+          # Wait for the operator's pod to be ready to validate your new secrets
           kubectl wait --for=condition=ready pod \
             -l app.kubernetes.io/name=external-secrets-webhook \
             -n external-secrets-system \
