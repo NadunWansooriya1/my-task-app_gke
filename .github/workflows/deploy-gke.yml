@@ -18,6 +18,10 @@ jobs:
     name: Setup, Build, Publish, and Deploy
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      security-events: write # Allows uploading SARIF results
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,7 +77,7 @@ jobs:
 
       # --- NEW: Upload Backend Trivy Results ---
       - name: Upload Backend Trivy Results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always() # Ensures this runs even if the scan step finds issues
         with:
           sarif_file: 'trivy-backend-results.sarif'
@@ -100,7 +104,7 @@ jobs:
 
       # --- NEW: Upload Frontend Trivy Results ---
       - name: Upload Frontend Trivy Results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-frontend-results.sarif'
