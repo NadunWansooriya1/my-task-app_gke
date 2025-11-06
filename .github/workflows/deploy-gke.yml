@@ -60,6 +60,24 @@ jobs:
           docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} .
           docker tag gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
             gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:latest
+          
+          # --- NEW: Scan Backend Image ---
+      - name: Scan Backend Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0' # Set to 1 to fail the build if vulnerabilities are found
+
+      # --- NEW: Upload Backend Trivy Results ---
+      - name: Upload Backend Trivy Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always() # Ensures this runs even if the scan step finds issues
+        with:
+          sarif_file: 'trivy-backend-results.sarif'
+          category: backend-image
 
       - name: Build Frontend Image
         run: |
@@ -69,6 +87,24 @@ jobs:
             -t gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} .
           docker tag gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
             gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:latest
+
+      # --- NEW: Scan Frontend Image ---
+      - name: Scan Frontend Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      # --- NEW: Upload Frontend Trivy Results ---
+      - name: Upload Frontend Trivy Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'
+          category: frontend-image
 
       - name: Publish Images to GCR
         run: |
