@@ -10,8 +10,8 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(
-                        "https://task_gke.nadunwansooriya.online",
-                        "https://www.task_gke.nadunwansooriya.online",
+                        "https://task-gke.nadunwansooriya.online",
+                        "https://www.task-gke.nadunwansooriya.online",
                         "http://localhost:3000"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")

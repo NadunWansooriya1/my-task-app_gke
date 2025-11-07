@@ -13,11 +13,11 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - task_gke.nadunwansooriya.online
-        - www.task_gke.nadunwansooriya.online
+        - task-gke.nadunwansooriya.online
+        - www.task-gke.nadunwansooriya.online
       secretName: nadun-task-app-tls
   rules:
-    - host: task_gke.nadunwansooriya.online
+    - host: task-gke.nadunwansooriya.online
       http:
         paths:
           - path: /api
@@ -34,7 +34,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    - host: www.task_gke.nadunwansooriya.online
+    - host: www.task-gke.nadunwansooriya.online
       http:
         paths:
           - path: /api

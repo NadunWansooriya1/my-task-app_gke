@@ -9,5 +9,5 @@ spec:
     name: letsencrypt-prod # Use the production issuer
     kind: ClusterIssuer
   dnsNames:
-    - task_gke.nadunwansooriya.online
-    - www.task_gke.nadunwansooriya.online
+    - task-gke.nadunwansooriya.online
+    - www.task-gke.nadunwansooriya.online

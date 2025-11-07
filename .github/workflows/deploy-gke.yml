@@ -87,7 +87,7 @@ jobs:
         run: |
           cd todo-frontend
           docker build \
-            --build-arg REACT_APP_API_URL=https://task_gke.nadunwansooriya.online/api \
+            --build-arg REACT_APP_API_URL=https://task-gke.nadunwansooriya.online/api \
             -t gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} .
           docker tag gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
             gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:latest
