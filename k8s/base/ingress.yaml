@@ -4,39 +4,36 @@ metadata:
   name: nadun-task-app-ingress
   namespace: nadun-task-app
   annotations:
-    # Tell cert-manager to use this Ingress
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-
-    # Tell Ingress to use Nginx
-    kubernetes.io/ingress.class: "nginx"
-
-    # Force redirect to HTTPS
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 spec:
+  ingressClassName: nginx
   tls:
     - hosts:
         - task_gke.nadunwansooriya.online
         - www.task_gke.nadunwansooriya.online
-      secretName: nadun-task-app-tls # Use the secret cert-manager creates
+      secretName: nadun-task-app-tls
   rules:
     - host: task_gke.nadunwansooriya.online
       http:
         paths:
-          - path: /api # Backend traffic
+          - path: /api
             pathType: Prefix
             backend:
               service:
                 name: backend
                 port:
-                  number: 8080 # Port defined in your backend *service*
-          - path: /     # All other traffic
+                  number: 8080
+          - path: /
             pathType: Prefix
             backend:
               service:
                 name: frontend
                 port:
-                  number: 80 # Port defined in your frontend *service*
+                  number: 80
     - host: www.task_gke.nadunwansooriya.online
       http:
         paths:
