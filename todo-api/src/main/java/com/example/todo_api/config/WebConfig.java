@@ -10,9 +10,9 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(
-                        "http://35.225.104.46",        // Frontend LoadBalancer IP
-                        "http://34.55.79.94:8080",     // Backend LoadBalancer IP
-                        "http://localhost:3000"         // Local development
+                        "https://task_gke.nadunwansooriya.online",
+                        "https://www.task_gke.nadunwansooriya.online",
+                        "http://localhost:3000"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
