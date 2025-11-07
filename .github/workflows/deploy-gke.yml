@@ -164,6 +164,11 @@ jobs:
           # Wait for Frontend
           echo "Waiting for Frontend to be ready..."
           kubectl wait --for=condition=ready pod -l app=frontend -n nadun-task-app --timeout=300s || true
+          
+          # --- NEW: APPLY INGRESS & SSL ---
+          kubectl apply -f k8s/cert-manager/cluster-issuer.yaml
+          kubectl apply -f k8s/cert-manager/certificate.yaml
+          kubectl apply -f k8s/base/ingress.yaml
 
       - name: Get Service Information
         run: |
