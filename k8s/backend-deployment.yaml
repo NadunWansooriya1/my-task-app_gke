@@ -56,8 +56,8 @@ spec:
               value: "-Xmx512m -Xms256m -XX:MaxMetaspaceSize=128m"
           resources:
             requests:
-              memory: "384Mi"
-              cpu: "300m"
+              memory: "256Mi"
+              cpu: "200m"
             limits:
               memory: "768Mi"
               cpu: "600m"
