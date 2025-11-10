@@ -1,0 +1,165 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: dev-ops-475910
+  GKE_CLUSTER: nadun-task-app-cluster
+  GKE_ZONE: us-central1-a
+  BACKEND_IMAGE: nadun-task-backend
+  FRONTEND_IMAGE: nadun-task-frontend
+  NAMESPACE: nadun-task-app
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Setup gcloud CLI
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        project_id: ${{ env.PROJECT_ID }}
+        export_default_credentials: true
+
+    # Configure Docker to use gcloud as credential helper
+    - name: Configure Docker for GCR
+      run: |
+        gcloud auth configure-docker gcr.io
+
+    # Get GKE credentials
+    - name: Get GKE Credentials
+      run: |
+        gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+          --zone ${{ env.GKE_ZONE }} \
+          --project ${{ env.PROJECT_ID }}
+
+    # Build Backend
+    - name: Build Backend JAR
+      run: |
+        cd todo-api
+        chmod +x mvnw
+        ./mvnw clean package -DskipTests
+        cd ..
+
+    # Build and Push Backend Docker Image
+    - name: Build and Push Backend Image
+      run: |
+        docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+          -t gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:latest \
+          ./todo-api
+        docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+        docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:latest
+
+    # Build Frontend
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: todo-frontend/package-lock.json
+
+    - name: Install Frontend Dependencies
+      run: |
+        cd todo-frontend
+        npm ci
+
+    - name: Build Frontend
+      run: |
+        cd todo-frontend
+        npm run build
+
+    # Build and Push Frontend Docker Image
+    - name: Build and Push Frontend Image
+      run: |
+        docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
+          -t gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:latest \
+          ./todo-frontend
+        docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+        docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:latest
+
+    # Apply Kubernetes Manifests
+    - name: Apply ConfigMap
+      run: |
+        kubectl apply -f k8s/postgres-configmap.yaml -n ${{ env.NAMESPACE }}
+
+    - name: Apply Secrets (if exists)
+      run: |
+        if [ -f k8s/secrets.yaml ]; then
+          kubectl apply -f k8s/secrets.yaml -n ${{ env.NAMESPACE }}
+        fi
+      continue-on-error: true
+
+    - name: Deploy to GKE
+      run: |
+        # Apply all Kubernetes manifests
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/postgres-pvc.yaml -n ${{ env.NAMESPACE }}
+        kubectl apply -f k8s/postgres-deployment.yaml -n ${{ env.NAMESPACE }}
+        kubectl apply -f k8s/backend-deployment.yaml -n ${{ env.NAMESPACE }}
+        kubectl apply -f k8s/frontend-deployment.yaml -n ${{ env.NAMESPACE }}
+        
+        # Update images to use the commit SHA
+        kubectl set image deployment/backend \
+          backend=gcr.io/${{ env.PROJECT_ID }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+          -n ${{ env.NAMESPACE }}
+        
+        kubectl set image deployment/frontend \
+          frontend=gcr.io/${{ env.PROJECT_ID }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
+          -n ${{ env.NAMESPACE }}
+
+    # Wait for Rollouts
+    - name: Wait for Backend Rollout
+      run: |
+        kubectl rollout status deployment/backend -n ${{ env.NAMESPACE }} --timeout=5m
+
+    - name: Wait for Frontend Rollout
+      run: |
+        kubectl rollout status deployment/frontend -n ${{ env.NAMESPACE }} --timeout=3m
+
+    - name: Wait for PostgreSQL Rollout
+      run: |
+        kubectl rollout status deployment/postgres -n ${{ env.NAMESPACE }} --timeout=3m
+
+    # Verify Deployment
+    - name: Verify Deployment
+      run: |
+        echo "=== Pod Status ==="
+        kubectl get pods -n ${{ env.NAMESPACE }}
+        echo ""
+        echo "=== Service Status ==="
+        kubectl get svc -n ${{ env.NAMESPACE }}
+        echo ""
+        echo "=== Deployment Status ==="
+        kubectl get deployments -n ${{ env.NAMESPACE }}
+
+    # Test Health Endpoint
+    - name: Test Backend Health
+      run: |
+        BACKEND_POD=$(kubectl get pods -n ${{ env.NAMESPACE }} -l app=backend -o jsonpath='{.items[0].metadata.name}')
+        if [ ! -z "$BACKEND_POD" ]; then
+          echo "Testing backend health endpoint..."
+          kubectl exec -n ${{ env.NAMESPACE }} $BACKEND_POD -- curl -s http://localhost:8080/health || true
+        fi
+
+    - name: Deployment Summary
+      if: success()
+      run: |
+        echo "=========================================="
+        echo "✅ Deployment Successful!"
+        echo "=========================================="
+        echo "Application URL: https://task-gke.nadunwansooriya.online"
+        echo "Commit SHA: ${{ github.sha }}"
+        echo "=========================================="
