@@ -1,9 +1,19 @@
 # Markdown documentation files
 *.md
 !README.md
+!.github/**/*.md
+!GITHUB_ACTIONS_SETUP.md
+
 
 # Project Secrets - Never commit real secrets!
 k8s/secrets.yaml
+github-actions-key.json
+github-actions-key-base64.txt
+
+# Common service account key patterns (safety)
+*service-account*.json
+*sa-key*.json
+*gcp-key*.json
 
 # Node modules
 node_modules/
@@ -12,6 +22,7 @@ todo-frontend/node_modules/
 # Build outputs
 todo-frontend/build/
 todo-api/target/
+**/coverage/
 
 # IDE
 .idea/
