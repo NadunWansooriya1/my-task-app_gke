@@ -23,4 +23,26 @@ public class AuthController {
         }
         throw new RuntimeException("Invalid credentials");
     }
+
+    @PostMapping("/register")
+    public Map<String, String> register(@RequestBody Map<String, String> userData) {
+        // Demo: Simplified registration (in production, hash password and save to database)
+        String username = userData.get("username");
+        String email = userData.get("email");
+        
+        // Basic validation
+        if (username == null || username.trim().isEmpty()) {
+            throw new RuntimeException("Username is required");
+        }
+        if (email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("Email is required");
+        }
+        
+        // In production: Save user to database with proper password hashing
+        // For demo: Just return success message
+        return Map.of(
+            "message", "Registration successful! Please login with your credentials.",
+            "username", username
+        );
+    }
 }

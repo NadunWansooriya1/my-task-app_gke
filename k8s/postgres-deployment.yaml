@@ -40,6 +40,9 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+            - name: postgres-init-script
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
           resources:
             requests:
               memory: "256Mi"
@@ -73,6 +76,9 @@ spec:
         - name: postgres-storage
           persistentVolumeClaim:
             claimName: postgres-pvc
+        - name: postgres-init-script
+          configMap:
+            name: postgres-init-config
 ---
 apiVersion: v1
 kind: Service

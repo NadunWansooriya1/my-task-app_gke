@@ -19,4 +19,6 @@ public class Task {
     private LocalDate taskDate;
     @Column(length = 500) // Matches frontend maxLength
     private String description;
+    private String priority;  // Added: low, medium, high
+    private String category;  // Added: Work, Personal, Shopping, Health, Learning, Other
 }

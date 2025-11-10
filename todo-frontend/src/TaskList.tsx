@@ -30,6 +30,16 @@ import {
   ListItemButton,
   ListItemText,
   Chip,
+  LinearProgress,
+  Grid,
+  InputAdornment,
+  ToggleButton,
+  ToggleButtonGroup,
+  Fade,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -37,13 +47,24 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   ExpandMore as ExpandMoreIcon,
+  CheckCircle as CheckCircleIcon,
+  PendingActions as PendingActionsIcon,
+  Assignment as AssignmentIcon,
+  TrendingUp as TrendingUpIcon,
+  LinearScale as LinearScaleIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Close as CloseIcon,
+  Flag as FlagIcon,
+  Label as LabelIcon,
+  PriorityHigh as PriorityHighIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { toast } from 'react-toastify';
 import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 import dayjs, { Dayjs } from 'dayjs';
 import { CSVLink } from 'react-csv';
-import { API_ENDPOINTS } from './config'; // <-- 1. ADD THIS IMPORT
+import { API_BASE_URL, API_ENDPOINTS } from './config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types & Interfaces
@@ -55,6 +76,8 @@ interface Task {
   completed: boolean;
   taskDate: string;
   description?: string | null;
+  priority?: string | null;
+  category?: string | null;
 }
 interface Analytics { total: number; completed: number; pending: number; }
 interface TaskListProps {
@@ -89,6 +112,8 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingTitle, setEditingTitle] = useState('');
     const [descriptionEdits, setDescriptionEdits] = useState<Record<number, string>>({});
+    const [priorityEdits, setPriorityEdits] = useState<Record<number, string>>({});
+    const [categoryEdits, setCategoryEdits] = useState<Record<number, string>>({});
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<number | 'add' | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -98,6 +123,8 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
     const [csvData, setCsvData] = useState<any[]>([]);
     const [pendingDates, setPendingDates] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending'>('all');
 
     const csvLinkRef = useRef<any>(null);
     const titleInputRef = useRef<HTMLInputElement>(null);
@@ -106,8 +133,7 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     const apiClient = useMemo(() => {
       if (!token) return null;
       return axios.create({
-        // 2. USE THE CONFIG VARIABLE INSTEAD OF A HARDCODED STRING
-        baseURL: API_ENDPOINTS.TASKS.replace('/tasks', ''),
+        baseURL: `${API_BASE_URL}/api`,
         headers: { Authorization: `Bearer ${token}` },
       });
     }, [token]);
@@ -146,12 +172,24 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
             apiClient.get<Analytics>('/tasks/analytics', { params: { date }, signal: controller.signal }),
             apiClient.get<string[]>('/tasks/pending-dates', { signal: controller.signal }),
           ]);
-          setTasks(tasksRes.data);
+          
+          // Ensure tasksRes.data is an array
+          const taskData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+          setTasks(taskData);
+          
           const desc: Record<number, string> = {};
-          tasksRes.data.forEach((t) => (desc[t.id] = t.description ?? ''));
+          const prior: Record<number, string> = {};
+          const categ: Record<number, string> = {};
+          taskData.forEach((t) => {
+            desc[t.id] = t.description ?? '';
+            prior[t.id] = t.priority ?? 'medium';
+            categ[t.id] = t.category ?? 'Other';
+          });
           setDescriptionEdits(desc);
+          setPriorityEdits(prior);
+          setCategoryEdits(categ);
           setAnalytics(analyticsRes.data);
-          setPendingDates(pendingRes.data);
+          setPendingDates(Array.isArray(pendingRes.data) ? pendingRes.data : []);
         } catch (err) {
           if (!axios.isCancel(err)) {
             setError(handleError(err, `Fetch failed for ${selectedDate.format('MMM D')}`));
@@ -189,6 +227,8 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
           completed: false,
           taskDate: selectedDate.format('YYYY-MM-DD'),
           description: '',
+          priority: 'medium',
+          category: 'Other',
         });
         setNewTask('');
         toast.success('Task added');
@@ -275,6 +315,44 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
       [tasks, descriptionEdits, apiClient, handleError, setRefreshKey]
     );
 
+    const savePriority = useCallback(
+      async (id: number, newPriority: string) => {
+        if (!apiClient) return;
+        const task = tasks.find((t) => t.id === id);
+        if (!task || task.priority === newPriority) return;
+        setActionLoading(id);
+        try {
+          await apiClient.put(`/tasks/${id}`, { ...task, priority: newPriority });
+          toast.success('Priority updated');
+          setRefreshKey((k) => k + 1);
+        } catch (e) {
+          toast.error(handleError(e, 'Update failed'));
+        } finally {
+          setActionLoading(null);
+        }
+      },
+      [tasks, apiClient, handleError, setRefreshKey]
+    );
+
+    const saveCategory = useCallback(
+      async (id: number, newCategory: string) => {
+        if (!apiClient) return;
+        const task = tasks.find((t) => t.id === id);
+        if (!task || task.category === newCategory) return;
+        setActionLoading(id);
+        try {
+          await apiClient.put(`/tasks/${id}`, { ...task, category: newCategory });
+          toast.success('Category updated');
+          setRefreshKey((k) => k + 1);
+        } catch (e) {
+          toast.error(handleError(e, 'Update failed'));
+        } finally {
+          setActionLoading(null);
+        }
+      },
+      [tasks, apiClient, handleError, setRefreshKey]
+    );
+
     const confirmDelete = useCallback((id: number) => setDeleteConfirmId(id), []);
     const deleteConfirmed = useCallback(async () => {
       if (!apiClient || deleteConfirmId === null) return;
@@ -303,6 +381,8 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
       { label: 'ID', key: 'id' },
       { label: 'Title', key: 'title' },
       { label: 'Status', key: 'status' },
+      { label: 'Priority', key: 'priority' },
+      { label: 'Category', key: 'category' },
       { label: 'Date', key: 'taskDate' },
       { label: 'Description', key: 'description' },
     ];
@@ -313,6 +393,8 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
         id: t.id,
         title: t.title,
         status: t.completed ? 'Completed' : 'Pending',
+        priority: t.priority ?? 'medium',
+        category: t.category ?? 'Other',
         taskDate: t.taskDate,
         description: t.description ?? '',
       }));
@@ -322,6 +404,23 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     };
 
     useImperativeHandle(ref, () => ({ exportToCSV: exportCSV }));
+
+    // ────── Filtered Tasks ──────
+    const filteredTasks = useMemo(() => {
+      return tasks.filter((task) => {
+        // Filter by search query
+        const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (task.description ?? '').toLowerCase().includes(searchQuery.toLowerCase());
+
+        // Filter by status
+        const matchesStatus =
+          filterStatus === 'all' ||
+          (filterStatus === 'completed' && task.completed) ||
+          (filterStatus === 'pending' && !task.completed);
+
+        return matchesSearch && matchesStatus;
+      });
+    }, [tasks, searchQuery, filterStatus]);
 
     // ────── Render ──────
     if (!token)
@@ -357,25 +456,136 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
           <TextField
             fullWidth
             size="small"
-            label="New task"
+            label="Add new task"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addTask()}
             disabled={actionLoading === 'add'}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 3,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(20, 184, 166, 0.15)',
+                },
+                '&.Mui-focused': {
+                  boxShadow: '0 4px 16px rgba(20, 184, 166, 0.2)',
+                },
+              },
+            }}
           />
           <Box display="flex" gap={1} flexShrink={0}>
             <Button
               variant="contained"
               onClick={addTask}
               disabled={actionLoading === 'add' || !newTask.trim()}
-              sx={{ minWidth: 110 }}
+              sx={{
+                minWidth: 110,
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+                fontWeight: 600,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 16px rgba(20, 184, 166, 0.4)',
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+              }}
             >
-              {actionLoading === 'add' ? <CircularProgress size={22} /> : 'Add'}
+              {actionLoading === 'add' ? <CircularProgress size={22} /> : 'Add Task'}
             </Button>
-            <Button variant="outlined" onClick={suggestTask} disabled={actionLoading === 'add'}>
+            <Button
+              variant="outlined"
+              onClick={suggestTask}
+              disabled={actionLoading === 'add'}
+              sx={{
+                borderRadius: 3,
+                fontWeight: 600,
+                borderColor: 'rgba(251, 146, 60, 0.5)',
+                color: '#fb923c',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  borderColor: '#fb923c',
+                  backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 8px 16px rgba(251, 146, 60, 0.25)',
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+              }}
+            >
               Suggest
             </Button>
           </Box>
+        </Box>
+
+        {/* ----- Search and Filter ----- */}
+        <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} mb={3}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchQuery('')}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 3,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)',
+                },
+                '&.Mui-focused': {
+                  boxShadow: '0 4px 16px rgba(59, 130, 246, 0.15)',
+                },
+              },
+            }}
+          />
+          <ToggleButtonGroup
+            value={filterStatus}
+            exclusive
+            onChange={(_, newValue) => newValue && setFilterStatus(newValue)}
+            size="small"
+            sx={{
+              flexShrink: 0,
+              '& .MuiToggleButton-root': {
+                borderRadius: 2,
+                px: 2.5,
+                fontWeight: 600,
+                textTransform: 'none',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                '&.Mui-selected': {
+                  background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+                  color: '#ffffff',
+                  border: '1px solid #14b8a6',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                  },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="all">All</ToggleButton>
+            <ToggleButton value="pending">Pending</ToggleButton>
+            <ToggleButton value="completed">Completed</ToggleButton>
+          </ToggleButtonGroup>
         </Box>
 
         {/* ----- Analytics ----- */}
@@ -395,13 +605,24 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
         </Box>
 
         {/* ----- Task List ----- */}
-        <List sx={{ maxHeight: { xs: 'calc(100vh - 420px)', md: '62vh' }, overflowY: 'auto' }}>
-          {tasks.length === 0 && !loading ? (
-            <Typography textAlign="center" color="text.secondary" my={4}>
-              No tasks scheduled.
-            </Typography>
+        <Box mb={2}>
+          <Typography variant="body2" color="text.secondary" mb={1}>
+            {filteredTasks.length === tasks.length
+              ? `Showing all ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`
+              : `Showing ${filteredTasks.length} of ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`}
+          </Typography>
+        </Box>
+        <List sx={{ maxHeight: { xs: 'calc(100vh - 520px)', md: '55vh' }, overflowY: 'auto' }}>
+          {filteredTasks.length === 0 && !loading ? (
+            <Fade in>
+              <Typography textAlign="center" color="text.secondary" my={4}>
+                {searchQuery || filterStatus !== 'all'
+                  ? 'No tasks match your filters.'
+                  : 'No tasks scheduled.'}
+              </Typography>
+            </Fade>
           ) : (
-            tasks.map((task) => {
+            filteredTasks.map((task) => {
               const editing = editingId === task.id;
               const expanded = expandedTaskId === task.id;
               const loadingThis = actionLoading === task.id;
@@ -428,17 +649,68 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
                           sx={{ flexGrow: 1 }}
                         />
                       ) : (
-                        <Typography
-                          onClick={() => startEdit(task.id, task.title)}
-                          sx={{
-                            flexGrow: 1,
-                            cursor: 'pointer',
-                            textDecoration: task.completed ? 'line-through' : 'none',
-                            opacity: task.completed ? 0.6 : 1,
-                          }}
-                        >
-                          {task.title}
-                        </Typography>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography
+                            onClick={() => startEdit(task.id, task.title)}
+                            sx={{
+                              cursor: 'pointer',
+                              textDecoration: task.completed ? 'line-through' : 'none',
+                              opacity: task.completed ? 0.6 : 1,
+                              mb: 0.5,
+                            }}
+                          >
+                            {task.title}
+                          </Typography>
+                          <Box display="flex" gap={0.75} flexWrap="wrap">
+                            <Chip
+                              size="small"
+                              icon={<FlagIcon sx={{ fontSize: 14 }} />}
+                              label={task.priority ?? 'medium'}
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                backgroundColor:
+                                  (task.priority ?? 'medium') === 'high'
+                                    ? 'rgba(239, 68, 68, 0.15)'
+                                    : (task.priority ?? 'medium') === 'medium'
+                                    ? 'rgba(245, 158, 11, 0.15)'
+                                    : 'rgba(16, 185, 129, 0.15)',
+                                color:
+                                  (task.priority ?? 'medium') === 'high'
+                                    ? '#ef4444'
+                                    : (task.priority ?? 'medium') === 'medium'
+                                    ? '#f59e0b'
+                                    : '#10b981',
+                                border: 'none',
+                                '& .MuiChip-icon': {
+                                  color:
+                                    (task.priority ?? 'medium') === 'high'
+                                      ? '#ef4444'
+                                      : (task.priority ?? 'medium') === 'medium'
+                                      ? '#f59e0b'
+                                      : '#10b981',
+                                },
+                              }}
+                            />
+                            <Chip
+                              size="small"
+                              icon={<LabelIcon sx={{ fontSize: 14 }} />}
+                              label={task.category ?? 'Other'}
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                backgroundColor: 'rgba(34, 211, 238, 0.15)',
+                                color: '#22d3ee',
+                                border: 'none',
+                                '& .MuiChip-icon': {
+                                  color: '#22d3ee',
+                                },
+                              }}
+                            />
+                          </Box>
+                        </Box>
                       )}
                       {!editing && (
                         <ExpandMore
@@ -463,6 +735,81 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
 
                   <Collapse in={expanded} timeout="auto" unmountOnExit>
                     <CardContent sx={{ pt: 0 }}>
+                      {/* Priority and Category Row */}
+                      <Box display="flex" gap={2} mb={2} flexDirection={{ xs: 'column', sm: 'row' }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Priority</InputLabel>
+                          <Select
+                            value={priorityEdits[task.id] ?? 'medium'}
+                            label="Priority"
+                            onChange={(e) => {
+                              setPriorityEdits((p) => ({ ...p, [task.id]: e.target.value }));
+                              savePriority(task.id, e.target.value);
+                            }}
+                            disabled={loadingThis}
+                            startAdornment={
+                              <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                                <FlagIcon
+                                  sx={{
+                                    fontSize: 18,
+                                    color:
+                                      (priorityEdits[task.id] ?? 'medium') === 'high'
+                                        ? '#ef4444'
+                                        : (priorityEdits[task.id] ?? 'medium') === 'medium'
+                                        ? '#f59e0b'
+                                        : '#10b981',
+                                  }}
+                                />
+                              </Box>
+                            }
+                          >
+                            <MenuItem value="low">
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <FlagIcon sx={{ fontSize: 18, color: '#10b981' }} />
+                                <Typography>Low</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="medium">
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <FlagIcon sx={{ fontSize: 18, color: '#f59e0b' }} />
+                                <Typography>Medium</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="high">
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <FlagIcon sx={{ fontSize: 18, color: '#ef4444' }} />
+                                <Typography>High</Typography>
+                              </Box>
+                            </MenuItem>
+                          </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Category</InputLabel>
+                          <Select
+                            value={categoryEdits[task.id] ?? 'Other'}
+                            label="Category"
+                            onChange={(e) => {
+                              setCategoryEdits((p) => ({ ...p, [task.id]: e.target.value }));
+                              saveCategory(task.id, e.target.value);
+                            }}
+                            disabled={loadingThis}
+                            startAdornment={
+                              <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                                <LabelIcon sx={{ fontSize: 18, color: '#22d3ee' }} />
+                              </Box>
+                            }
+                          >
+                            <MenuItem value="Work">Work</MenuItem>
+                            <MenuItem value="Personal">Personal</MenuItem>
+                            <MenuItem value="Shopping">Shopping</MenuItem>
+                            <MenuItem value="Health">Health</MenuItem>
+                            <MenuItem value="Learning">Learning</MenuItem>
+                            <MenuItem value="Other">Other</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Description
                       </Typography>
@@ -485,8 +832,14 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
                           onClick={() => saveDescription(task.id)}
                           disabled={loadingThis}
                           startIcon={loadingThis ? <CircularProgress size={16} /> : <SaveIcon />}
+                          sx={{
+                            background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+                            '&:hover': {
+                              background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                            },
+                          }}
                         >
-                          Save
+                          Save Description
                         </Button>
                       </Box>
                     </CardContent>

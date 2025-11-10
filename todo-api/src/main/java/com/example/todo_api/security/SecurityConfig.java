@@ -15,8 +15,10 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable()) // New lambda style
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // ADD THIS LINE
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS preflight
                         .requestMatchers(
+                                "/",
+                                "/health",
                                 "/api/auth/**",
                                 "/actuator/**",
                                 "/api-docs/**",

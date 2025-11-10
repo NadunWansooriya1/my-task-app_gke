@@ -34,18 +34,32 @@ public class TaskController {
     @PutMapping("/{id}")
     public Task update(@PathVariable Long id, @RequestBody Task updatedTask) {
         Task task = repository.findById(id).orElseThrow(() -> new RuntimeException("Task not found"));
-        // This logic is designed to update only fields that are provided
-        // We'll update the frontend to match this
-        if (updatedTask.getTitle() != null) {
-            task.setTitle(updatedTask.getTitle());
+        
+        // Update all fields that are provided
+        if (updatedTask.getTitle() != null && !updatedTask.getTitle().trim().isEmpty()) {
+            task.setTitle(updatedTask.getTitle().trim());
         }
+        
         if (updatedTask.getDescription() != null) {
-            task.setDescription(updatedTask.getDescription());
+            task.setDescription(updatedTask.getDescription().trim());
         }
-        // Special check for boolean
-        if (updatedTask.isCompleted() != task.isCompleted()) {
-            task.setCompleted(updatedTask.isCompleted());
+        
+        if (updatedTask.getPriority() != null && !updatedTask.getPriority().isEmpty()) {
+            task.setPriority(updatedTask.getPriority());
         }
+        
+        if (updatedTask.getCategory() != null && !updatedTask.getCategory().isEmpty()) {
+            task.setCategory(updatedTask.getCategory());
+        }
+        
+        // Always update completed status (boolean always has a value)
+        task.setCompleted(updatedTask.isCompleted());
+        
+        // Update task date if provided
+        if (updatedTask.getTaskDate() != null) {
+            task.setTaskDate(updatedTask.getTaskDate());
+        }
+        
         return repository.save(task);
     }
 

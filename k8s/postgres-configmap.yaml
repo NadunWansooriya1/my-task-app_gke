@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-config
+  namespace: nadun-task-app
+  labels:
+    app: postgres
+data:
+  init.sql: |
+    -- ==========================================
+    -- Database Initialization Script for GKE Todo API
+    -- ==========================================
+    \c taskdb;
+
+    -- Create Performance Indexes
+    CREATE INDEX IF NOT EXISTS idx_task_date ON task(task_date);
+    CREATE INDEX IF NOT EXISTS idx_task_user_id ON task(user_id);
+    CREATE INDEX IF NOT EXISTS idx_task_completed ON task(completed);
+    CREATE INDEX IF NOT EXISTS idx_task_date_completed ON task(task_date, completed);
+    CREATE INDEX IF NOT EXISTS idx_task_priority ON task(priority);
+    CREATE INDEX IF NOT EXISTS idx_task_category ON task(category);
+    CREATE INDEX IF NOT EXISTS idx_task_user_completed ON task(user_id, completed);
+    CREATE INDEX IF NOT EXISTS idx_task_user_date ON task(user_id, task_date);
+
+    -- Insert Sample Test Data
+    INSERT INTO task (title, description, completed, user_id, task_date, priority, category)
+    VALUES
+        ('Setup GKE Deployment', 'Configure Kubernetes cluster and deploy the application', false, 'admin', CURRENT_DATE, 'high', 'Work'),
+        ('Configure PostgreSQL Database', 'Set up PostgreSQL with proper credentials and indexes', true, 'admin', CURRENT_DATE, 'high', 'Work'),
+        ('Test API Endpoints', 'Verify all CRUD operations work correctly with Postman', false, 'admin', CURRENT_DATE, 'medium', 'Work'),
+        ('Review Code Quality', 'Run SonarQube analysis and fix critical issues', false, 'admin', CURRENT_DATE, 'medium', 'Work'),
+        ('Setup CI/CD Pipeline', 'Configure GitHub Actions for automatic deployment to GKE', false, 'admin', CURRENT_DATE + INTERVAL '1 day', 'high', 'Work'),
+        ('Enable HTTPS with Cert-Manager', 'Configure SSL certificate with Let''s Encrypt', false, 'admin', CURRENT_DATE + INTERVAL '2 days', 'high', 'Work'),
+        ('Implement Monitoring', 'Set up Prometheus and Grafana dashboards', false, 'admin', CURRENT_DATE + INTERVAL '3 days', 'medium', 'Work'),
+        ('Load Testing', 'Perform load testing with K6 or JMeter', false, 'admin', CURRENT_DATE + INTERVAL '5 days', 'medium', 'Work'),
+        ('Team Meeting', 'Weekly standup and sprint planning', false, 'admin', CURRENT_DATE + INTERVAL '1 day', 'low', 'Personal'),
+        ('Code Review', 'Review pull requests from team members', false, 'admin', CURRENT_DATE, 'medium', 'Personal'),
+        ('Docker Image Build', 'Build and push Docker images to GCR', true, 'admin', CURRENT_DATE - INTERVAL '1 day', 'high', 'Work'),
+        ('Security Scan', 'Scan Docker images for vulnerabilities', true, 'admin', CURRENT_DATE - INTERVAL '1 day', 'high', 'Work')
+    ON CONFLICT DO NOTHING;
+
+    -- Grant Privileges
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin;
+    GRANT USAGE ON SCHEMA public TO admin;
+
+    -- Update Statistics
+    ANALYZE task;
+
+    -- Success Message
+    DO $$
+    BEGIN
+        RAISE NOTICE '==========================================';
+        RAISE NOTICE 'GKE Todo App Database Initialization';
+        RAISE NOTICE '==========================================';
+        RAISE NOTICE 'Database: taskdb';
+        RAISE NOTICE 'User: admin';
+        RAISE NOTICE 'Indexes: Created successfully';
+        RAISE NOTICE 'Sample Data: Inserted successfully';
+        RAISE NOTICE 'Permissions: Granted successfully';
+        RAISE NOTICE '==========================================';
+        RAISE NOTICE 'Database is ready for Spring Boot application';
+        RAISE NOTICE '==========================================';
+    END $$;

@@ -1,0 +1,45 @@
+# Markdown documentation files
+*.md
+!README.md
+
+# Project Secrets - Never commit real secrets!
+k8s/secrets.yaml
+
+# Node modules
+node_modules/
+todo-frontend/node_modules/
+
+# Build outputs
+todo-frontend/build/
+todo-api/target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database backups
+*.sql
+*.dump
+task_backup_*.sql
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
