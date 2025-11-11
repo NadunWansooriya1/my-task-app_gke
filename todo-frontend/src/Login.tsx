@@ -582,7 +582,60 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   fontStyle: 'italic',
                 }}
               >
-                {/* Demo: Username: <Box component="span" sx={{ color: '#94a3b8', fontWeight: 500 }}>admin</Box> | Password: <Box component="span" sx={{ color: '#94a3b8', fontWeight: 500 }}>pass</Box> */}
+                <Box component="span" sx={{ display: 'block', color: '#94a3b8', fontWeight: 600, fontStyle: 'normal' }}>
+                  
+                  {/* Requested demo banner text */}
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  {
+                    ' Demo Users Only'
+                  }
+                </Box>
+                <Box component="span" sx={{ display: 'block', color: '#94a3b8', mt: 0.25 }}>
+                  Username: <Box component="span" sx={{ color: '#cbd5e1', fontWeight: 600 }}>admin</Box> | Password: <Box component="span" sx={{ color: '#cbd5e1', fontWeight: 600 }}>pass</Box>
+                </Box>
               </Typography>
             </Box>
           )}
