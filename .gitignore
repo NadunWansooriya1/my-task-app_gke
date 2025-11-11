@@ -3,6 +3,7 @@
 !README.md
 !.github/**/*.md
 !GITHUB_ACTIONS_SETUP.md
+!diagrams/**/*.md
 
 
 # Project Secrets - Never commit real secrets!
