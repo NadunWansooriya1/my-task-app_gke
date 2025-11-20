@@ -130,6 +130,9 @@ jobs:
           # Apply secrets
           kubectl apply -f k8s/secrets.yaml
           
+          # Apply ConfigMap for PostgreSQL init script
+          kubectl apply -f k8s/postgres-configmap.yaml
+          
           # Apply PVC
           kubectl apply -f k8s/postgres-pvc.yaml
           
